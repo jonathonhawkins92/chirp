@@ -1,9 +1,10 @@
-import type { User } from "@clerk/nextjs/dist/api";
 import { clerkClient } from "@clerk/nextjs/server";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
+
+import { transformUserForClient } from "~/server/helpers/transformUserForClient";
 
 import {
     createTRPCRouter,
@@ -17,14 +18,6 @@ const rateLimit = new Ratelimit({
     limiter: Ratelimit.slidingWindow(3, "1 m"),
     analytics: true,
 });
-
-const transformUserToAuthor = (user: User) => {
-    return {
-        id: user.id,
-        username: user.username,
-        profileImageUrl: user.profileImageUrl,
-    };
-};
 
 export const postRouter = createTRPCRouter({
     getAll: publicProcedure.query(async ({ ctx }) => {
@@ -40,7 +33,7 @@ export const postRouter = createTRPCRouter({
             limit: 100,
         });
 
-        const authors = users.map(transformUserToAuthor);
+        const authors = users.map(transformUserForClient);
 
         return posts.map((post) => {
             const author = authors.find((user) => user.id === post.authorId);
