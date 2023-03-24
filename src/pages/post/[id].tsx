@@ -1,34 +1,52 @@
-import type { NextPage } from "next";
+import type { GetStaticProps, NextPage } from "next";
 import Head from "next/head";
-import { PageLayout } from "~/components/layout";
-
-import { LoadingPage } from "~/components/loading";
 import { api } from "~/utils/api";
+import { PageLayout } from "~/components/layout";
+import { generateSSGHelper } from "~/server/helpers/ssgHelper";
+import { PostView } from "~/components/post-view";
 
-const SinglePostPage: NextPage = () => {
-    const {
-        data: profile,
-        isLoading,
-        isError,
-    } = api.profile.getUserByUsername.useQuery({
-        username: "jonathonhawkins92",
+const Profile: NextPage<{ id: string }> = ({ id }) => {
+    const { data } = api.posts.getById.useQuery({
+        id,
     });
 
-    if (isLoading) return <LoadingPage />;
-    if (isError) return <div>Whoops!</div>;
+    if (!data) return <div>Whoops!</div>;
 
     return (
         <>
             <Head>
-                <title>Post</title>
+                <title>{`${data.post.content} - @${data.author.username}`}</title>
             </Head>
             <PageLayout>
-                SinglePostPage
-                {profile.username}
+                <PostView post={data.post} author={data.author} />
             </PageLayout>
         </>
     );
 };
 
-export default SinglePostPage;
+export const getStaticProps: GetStaticProps = async (context) => {
+    const ssg = generateSSGHelper();
+
+    const id = context.params?.id;
+
+    if (typeof id !== "string") {
+        // TODO: redirect to 404
+        throw new Error("No post id");
+    }
+
+    await ssg.posts.getById.prefetch({ id });
+
+    return {
+        props: {
+            trpcState: ssg.dehydrate(),
+            id,
+        },
+    };
+};
+
+export const getStaticPaths = () => {
+    return { paths: [], fallback: "blocking" };
+};
+
+export default Profile;
 

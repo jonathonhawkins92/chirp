@@ -1,14 +1,11 @@
 import type { GetStaticProps, NextPage } from "next";
 import Image from "next/image";
 import Head from "next/head";
-import { createProxySSGHelpers } from "@trpc/react-query/ssg";
 import { api } from "~/utils/api";
-import { appRouter } from "~/server/api/root";
-import { prisma } from "~/server/db";
-import superjson from "superjson";
 import { PageLayout } from "~/components/layout";
 import { LoadingPage } from "~/components/loading";
 import { PostView } from "~/components/post-view";
+import { generateSSGHelper } from "~/server/helpers/ssgHelper";
 
 const ProfileFeed = ({ userId }: { userId: string }) => {
     const {
@@ -31,7 +28,7 @@ const ProfileFeed = ({ userId }: { userId: string }) => {
     );
 };
 
-const Profile: NextPage<{ username: string }> = ({ username }) => {
+const SinglePostPage: NextPage<{ username: string }> = ({ username }) => {
     const { data: profile } = api.profile.getUserByUsername.useQuery({
         username,
     });
@@ -69,14 +66,7 @@ const Profile: NextPage<{ username: string }> = ({ username }) => {
 };
 
 export const getStaticProps: GetStaticProps = async (context) => {
-    const ssg = createProxySSGHelpers({
-        router: appRouter,
-        ctx: {
-            prisma,
-            currentUserId: undefined,
-        },
-        transformer: superjson,
-    });
+    const ssg = generateSSGHelper();
 
     const slug = context.params?.slug;
 
@@ -101,5 +91,5 @@ export const getStaticPaths = () => {
     return { paths: [], fallback: "blocking" };
 };
 
-export default Profile;
+export default SinglePostPage;
 
