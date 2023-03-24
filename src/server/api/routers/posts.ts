@@ -11,6 +11,7 @@ import {
     privateProcedure,
     publicProcedure,
 } from "~/server/api/trpc";
+import type { Post } from "@prisma/client";
 
 // Create a new ratelimiter, that allows 3 requests per 1 minute
 const rateLimit = new Ratelimit({
@@ -18,6 +19,32 @@ const rateLimit = new Ratelimit({
     limiter: Ratelimit.slidingWindow(3, "1 m"),
     analytics: true,
 });
+
+const addAuthorDataToPost = async (posts: Post[], authorIds: string[]) => {
+    const users = await clerkClient.users.getUserList({
+        userId: authorIds,
+        limit: 100,
+    });
+
+    const authors = users.map(transformUserForClient);
+
+    return posts.map((post) => {
+        const author = authors.find((user) => user.id === post.authorId);
+        if (!author || !author.username) {
+            throw new TRPCError({
+                code: "INTERNAL_SERVER_ERROR",
+                message: "Author for post not found",
+            });
+        }
+        return {
+            post,
+            author: {
+                ...author,
+                username: author.username,
+            },
+        };
+    });
+};
 
 export const postRouter = createTRPCRouter({
     getAll: publicProcedure.query(async ({ ctx }) => {
@@ -28,30 +55,26 @@ export const postRouter = createTRPCRouter({
             },
         });
 
-        const users = await clerkClient.users.getUserList({
-            userId: posts.map((post) => post.authorId),
-            limit: 100,
-        });
-
-        const authors = users.map(transformUserForClient);
-
-        return posts.map((post) => {
-            const author = authors.find((user) => user.id === post.authorId);
-            if (!author || !author.username) {
-                throw new TRPCError({
-                    code: "INTERNAL_SERVER_ERROR",
-                    message: "Author for post not found",
-                });
-            }
-            return {
-                post,
-                author: {
-                    ...author,
-                    username: author.username,
-                },
-            };
-        });
+        return addAuthorDataToPost(
+            posts,
+            posts.map((post) => post.authorId)
+        );
     }),
+
+    getPostsByUserId: publicProcedure
+        .input(z.object({ userId: z.string() }))
+        .query(async ({ ctx, input }) => {
+            const posts = await ctx.prisma.post.findMany({
+                where: { authorId: input.userId },
+                take: 100,
+                orderBy: {
+                    createdAt: "desc",
+                },
+            });
+
+            return addAuthorDataToPost(posts, [input.userId]);
+        }),
+
     create: privateProcedure
         .input(
             z.object({

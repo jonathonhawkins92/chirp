@@ -7,6 +7,29 @@ import { appRouter } from "~/server/api/root";
 import { prisma } from "~/server/db";
 import superjson from "superjson";
 import { PageLayout } from "~/components/layout";
+import { LoadingPage } from "~/components/loading";
+import { PostView } from "~/components/post-view";
+
+const ProfileFeed = ({ userId }: { userId: string }) => {
+    const {
+        data: posts,
+        isLoading,
+        isError,
+    } = api.posts.getPostsByUserId.useQuery({ userId });
+
+    if (isLoading) return <LoadingPage />;
+    if (isError) return <div>Whoops!</div>;
+
+    return (
+        <ul>
+            {posts.map(({ post, author }) => (
+                <li key={post.id}>
+                    <PostView post={post} author={author} />
+                </li>
+            ))}
+        </ul>
+    );
+};
 
 const Profile: NextPage<{ username: string }> = ({ username }) => {
     const { data: profile } = api.profile.getUserByUsername.useQuery({
@@ -18,7 +41,7 @@ const Profile: NextPage<{ username: string }> = ({ username }) => {
     return (
         <>
             <Head>
-                <title>{`@${username}`}</title>
+                <title>{`@${profile.username}`}</title>
             </Head>
             <PageLayout>
                 <header>
@@ -26,17 +49,20 @@ const Profile: NextPage<{ username: string }> = ({ username }) => {
                     <div className="relative w-full border-b border-slate-400">
                         <Image
                             src={profile.profileImageUrl}
-                            alt={`@${username}'s profile picture`}
+                            alt={`@${profile.username}'s profile picture`}
                             className="absolute top-0 left-0 -mt-16 ml-4 h-32 w-32 rounded-full border-4 border-black bg-black"
                             width={128}
                             height={126}
                         />
                         <div className="h-16" />
                         <div className="p-4 text-2xl font-bold">
-                            {`@${username}`}
+                            {`@${profile.username}`}
                         </div>
                     </div>
                 </header>
+                <section>
+                    <ProfileFeed userId={profile.id} />
+                </section>
             </PageLayout>
         </>
     );
