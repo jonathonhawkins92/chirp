@@ -8,7 +8,8 @@ import relativeTime from "dayjs/plugin/relativeTime";
 
 import type { RouterOutputs } from "~/utils/api";
 import { api } from "~/utils/api";
-import { LoadingPage } from "~/components/loading";
+import { LoadingPage, LoadingSpinner } from "~/components/loading";
+import { toast } from "react-hot-toast";
 
 dayjs.extend(relativeTime);
 
@@ -42,33 +43,46 @@ const CreatePostWizard = () => {
             input.current.value = "";
             void ctx.posts.getAll.invalidate();
         },
+        onError(e) {
+            const errorMessage = e.data?.zodError?.fieldErrors.content;
+            if (errorMessage) {
+                for (const error of errorMessage) {
+                    toast.error(error);
+                }
+            } else if (e.message === "TOO_MANY_REQUESTS") {
+                toast.error("You can only post twice a minute, chill out.");
+            } else {
+                toast.error("Failed to post! Please try again later.");
+            }
+        },
     });
 
     if (!isSignedIn) return null;
 
     return (
-        <div className="flex w-full gap-3">
+        <form
+            className="flex w-full items-center gap-3"
+            onSubmit={(e) => {
+                e.preventDefault();
+                if (!input.current) return;
+                mutate({
+                    content: input.current.value,
+                });
+            }}
+        >
             <Avatar src={user.profileImageUrl} username={user.username} />
-            <form
-                className="flex grow gap-3"
-                onSubmit={(e) => {
-                    e.preventDefault();
-                    if (!input.current) return;
-                    mutate({
-                        content: input.current.value,
-                    });
-                }}
-            >
-                <input
-                    className="grow bg-transparent outline-none"
-                    placeholder="Emojis"
-                    type="text"
-                    ref={input}
-                    disabled={isLoading}
-                />
-                <input type="submit" value="Post" disabled={isLoading} />
-            </form>
-        </div>
+            <input
+                className="grow bg-transparent outline-none"
+                placeholder="Emojis"
+                type="text"
+                ref={input}
+                disabled={isLoading}
+            />
+            {!isLoading && (
+                <input className="cursor-pointer" type="submit" value="Post" />
+            )}
+            {isLoading && <LoadingSpinner size={20} />}
+        </form>
     );
 };
 
@@ -125,13 +139,15 @@ const Home: NextPage = () => {
                 <link rel="icon" href="/favicon.ico" />
             </Head>
             <main className="flex h-screen justify-center">
-                <div className="h-full w-full border-x border-slate-400 md:max-w-2xl">
-                    <nav className="flex border-b border-slate-400 p-4">
-                        <div className="flex justify-center">
-                            {!isSignedIn && <SignInButton />}
-                        </div>
+                <div className="h-fit min-h-full w-full border-x border-slate-400 md:max-w-2xl">
+                    <header className="flex border-b border-slate-400 p-4">
+                        {!isSignedIn && (
+                            <div className="flex justify-center">
+                                <SignInButton />
+                            </div>
+                        )}
                         {!!isSignedIn && <CreatePostWizard />}
-                    </nav>
+                    </header>
                     <Feed />
                 </div>
             </main>
