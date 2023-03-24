@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import { SignInButton, useUser } from "@clerk/nextjs";
 import { type NextPage } from "next";
 import Head from "next/head";
@@ -31,19 +32,42 @@ const Avatar = ({
 
 const CreatePostWizard = () => {
     const { user, isSignedIn } = useUser();
+    const input = useRef<null | HTMLInputElement>(null);
+
+    const ctx = api.useContext();
+
+    const { mutate, isLoading } = api.posts.create.useMutation({
+        onSuccess() {
+            if (!input.current) return;
+            input.current.value = "";
+            void ctx.posts.getAll.invalidate();
+        },
+    });
 
     if (!isSignedIn) return null;
 
     return (
         <div className="flex w-full gap-3">
             <Avatar src={user.profileImageUrl} username={user.username} />
-            <input
-                className="grow bg-transparent outline-none"
-                placeholder="Emojis"
-                type="text"
-                name=""
-                id=""
-            />
+            <form
+                className="flex grow gap-3"
+                onSubmit={(e) => {
+                    e.preventDefault();
+                    if (!input.current) return;
+                    mutate({
+                        content: input.current.value,
+                    });
+                }}
+            >
+                <input
+                    className="grow bg-transparent outline-none"
+                    placeholder="Emojis"
+                    type="text"
+                    ref={input}
+                    disabled={isLoading}
+                />
+                <input type="submit" value="Post" disabled={isLoading} />
+            </form>
         </div>
     );
 };
