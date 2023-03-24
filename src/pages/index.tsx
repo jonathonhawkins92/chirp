@@ -3,6 +3,7 @@ import { SignInButton, useUser } from "@clerk/nextjs";
 import { type NextPage } from "next";
 import Head from "next/head";
 import Image from "next/image";
+import Link from "next/link";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 
@@ -20,10 +21,23 @@ const Avatar = ({
     src: string;
     username?: null | string;
 }) => {
+    if (username) {
+        return (
+            <Link href={`/@${username}`}>
+                <Image
+                    src={src}
+                    alt={`@${username}'s profile image`}
+                    className="h-14 w-14 rounded-full"
+                    width={56}
+                    height={56}
+                />
+            </Link>
+        );
+    }
     return (
         <Image
             src={src}
-            alt={username ? `@${username}'s profile image` : "Profile image"}
+            alt="Profile image"
             className="h-14 w-14 rounded-full"
             width={56}
             height={56}
@@ -91,14 +105,18 @@ type PostWithUser = RouterOutputs["posts"]["getAll"][number];
 const PostView = ({ post, author }: PostWithUser) => {
     return (
         <div className="flex w-full gap-3 border-b border-slate-400 p-4">
-            <Avatar src={author.profileImageUrl} />
+            <Avatar src={author.profileImageUrl} username={author.username} />
             <div className="flex flex-col">
                 <div className="flex gap-1 text-slate-300">
-                    <span>{`@${author.username}`}</span>
+                    <Link href={`/@${author.username}`}>
+                        <span>{`@${author.username}`}</span>
+                    </Link>
                     <span>·</span>
-                    <span className="font-thin">
-                        {dayjs(post.createdAt).fromNow()}
-                    </span>
+                    <Link href={`/post/${post.id}`}>
+                        <span className="font-thin">
+                            {dayjs(post.createdAt).fromNow()}
+                        </span>
+                    </Link>
                 </div>
                 <span className="text-2xl">{post.content}</span>
             </div>
